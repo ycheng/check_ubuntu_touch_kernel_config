@@ -91,7 +91,7 @@ for c in $CONFIGS_ON $CONFIGS_OFF;do
 done
 
 for c in $CONFIGS_ON;do
-	if grep "$c=y" $FILE >/dev/null;then
+	if grep "$c=y\|$c=m" $FILE >/dev/null;then
 		egreen "$c is set"
 	else
 		ered "$c is not set, set it"
@@ -109,7 +109,7 @@ for c in $CONFIGS_EQ;do
 done
 
 for c in $CONFIGS_OFF;do
-	if grep "$c=y" $FILE >/dev/null;then
+	if grep "$c=y\|$c=m" $FILE >/dev/null;then
 		ered "$c is set, unset it"
 		errors=$((errors+1))
 	else
