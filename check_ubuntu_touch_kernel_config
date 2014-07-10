@@ -1,0 +1,124 @@
+#!/bin/bash
+
+FILE=$1
+
+[ -f "$FILE" ] || {
+	echo "Provide a config file as argument"
+	exit
+}
+
+CONFIGS_ON="
+CONFIG_SYSVIPC
+CONFIG_NAMESPACES
+CONFIG_UTS_NS
+CONFIG_IPC_NS
+CONFIG_USER_NS
+CONFIG_PID_NS
+CONFIG_NET_NS
+CONFIG_AUDIT
+CONFIG_AUDIT_TREE
+CONFIG_AUDIT_WATCH
+CONFIG_CC_STACKPROTECTOR
+CONFIG_DEBUG_RODATA
+CONFIG_DEVTMPFS
+CONFIG_DEVTMPFS_MOUNT
+CONFIG_DEVPTS_MULTIPLE_INSTANCES
+CONFIG_ECRYPT_FS
+CONFIG_EXT4_FS_POSIX_ACL
+CONFIG_EXT4_FS_SECURITY
+CONFIG_FSNOTIFY
+CONFIG_DNOTIFY
+CONFIG_INOTIFY_USER
+CONFIG_FANOTIFY
+CONFIG_FANOTIFY_ACCESS_PERMISSIONS
+CONFIG_KEYS
+CONFIG_SWAP
+CONFIG_VT
+CONFIG_VT_CONSOLE
+CONFIG_SECCOMP
+CONFIG_SECURITY
+CONFIG_SECURITYFS
+CONFIG_DEFAULT_SECURITY_APPARMOR
+CONFIG_SECURITY_APPARMOR
+CONFIG_SECURITY_APPARMOR_HASH
+CONFIG_SECURITY_APPARMOR_UNCONFINED_INIT
+CONFIG_SECURITY_YAMA
+CONFIG_SECURITY_YAMA_STACKED
+CONFIG_STRICT_DEVMEM
+CONFIG_SYN_COOKIES
+CONFIG_BT
+CONFIG_BT_RFCOMM
+CONFIG_BT_RFCOMM_TTY
+CONFIG_BT_BNEP
+CONFIG_BT_BNEP_MC_FILTER
+CONFIG_BT_BNEP_PROTO_FILTER
+CONFIG_BT_HIDP
+CONFIG_BT_HCISMD
+"
+
+CONFIGS_OFF="
+CONFIG_ANDROID_PARANOID_NETWORK
+CONFIG_DEFAULT_SECURITY_DAC
+CONFIG_SECURITY_APPARMOR_STATS
+CONFIG_BT_HCIBTUSB
+"
+CONFIGS_EQ="
+CONFIG_DEFAULT_SECURITY=\"apparmor\"
+CONFIG_SECURITY_APPARMOR_BOOTPARAM_VALUE=1
+"
+ered() {
+	echo -e "\033[31m" $@
+}
+
+egreen() {
+	echo -e "\033[32m" $@
+}
+
+echo -e "\n\nChecking config file for Ubuntu Touch specific config options.\n\n"
+
+errors=0
+for c in $CONFIGS_ON $CONFIGS_OFF;do
+	cnt=`grep -w -c $c $FILE`
+	if [ $cnt -gt 1 ];then
+		ered "$c appears more than once in the config file, fix this"
+		errors=$((errors+1))
+	fi
+
+	if [ $cnt -eq 0 ];then
+		ered "$c is neither enabled nor disabled in the config file"
+		errors=$((errors+1))
+	fi
+done
+
+for c in $CONFIGS_ON;do
+	if grep "$c=y" $FILE >/dev/null;then
+		egreen "$c is set"
+	else
+		ered "$c is not set, set it"
+		errors=$((errors+1))
+	fi
+done
+
+for c in $CONFIGS_EQ;do
+	if grep "$c" $FILE >/dev/null;then
+		egreen "$c is set"
+	else
+		ered "$c is not set, set it"
+		errors=$((errors+1))
+	fi
+done
+
+for c in $CONFIGS_OFF;do
+	if grep "$c=y" $FILE >/dev/null;then
+		ered "$c is set, unset it"
+		errors=$((errors+1))
+	else
+		egreen "$c is not set"
+	fi
+done
+
+if [ $errors -eq 0 ];then
+	egreen "\n\nConfig file checked, found no errors.\n\n"
+else
+	ered "\n\nConfig file checked, found $errors errors.\n\n"
+fi
