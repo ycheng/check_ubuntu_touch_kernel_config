@@ -7,6 +7,12 @@ FILE=$1
 	exit
 }
 
+write=false
+
+if [ "$2" = "-w" ]; then
+	write=true
+fi
+
 CONFIGS_ON="
 CONFIG_SYSVIPC
 CONFIG_CGROUP_FREEZER
@@ -215,9 +221,15 @@ egreen() {
 	echo -e "\033[32m" $@
 }
 
+ewhite() {
+	echo -e "\033[37m" $@
+}
+
 echo -e "\n\nChecking config file for Ubuntu Touch specific config options.\n\n"
 
 errors=0
+fixes=0
+
 for c in $CONFIGS_ON $CONFIGS_OFF;do
 	cnt=`grep -w -c $c $FILE`
 	if [ $cnt -gt 1 ];then
@@ -226,40 +238,68 @@ for c in $CONFIGS_ON $CONFIGS_OFF;do
 	fi
 
 	if [ $cnt -eq 0 ];then
-		ered "$c is neither enabled nor disabled in the config file"
-		errors=$((errors+1))
+		if $write ; then
+			ewhite "Creating $c"
+			echo "# $c is not set" >> $FILE
+			fixes=$((fixes+1))
+		else
+			ered "$c is neither enabled nor disabled in the config file"
+			errors=$((errors+1))
+		fi
 	fi
 done
 
 for c in $CONFIGS_ON;do
 	if grep "$c=y\|$c=m" $FILE >/dev/null;then
-		egreen "$c is set"
+		egreen "$c is already set"
 	else
-		ered "$c is not set, set it"
-		errors=$((errors+1))
+		if $write ; then
+			ewhite "Setting $c"
+			sed  -i "s,# $c is not set,$c=y," $FILE
+			fixes=$((fixes+1))
+		else
+			ered "$c is not set, set it"
+			errors=$((errors+1))
+		fi
 	fi
 done
 
 for c in $CONFIGS_EQ;do
 	if grep "$c" $FILE >/dev/null;then
-		egreen "$c is set"
+		egreen "$c is already set"
 	else
-		ered "$c is not set, set it"
-		errors=$((errors+1))
+		if $write ; then
+			ewhite "Setting $c"
+			echo  "$c" >> $FILE
+			fixes=$((fixes+1))
+		else
+			ered "$c is not set, set it"
+			errors=$((errors+1))
+		fi
 	fi
 done
 
 for c in $CONFIGS_OFF;do
 	if grep "$c=y\|$c=m" $FILE >/dev/null;then
-		ered "$c is set, unset it"
-		errors=$((errors+1))
+		if $write ; then
+			ewhite "Unsetting $c"
+			sed  -i "s,$c=.*,# $c is not set," $FILE
+			fixes=$((fixes+1))
+		else
+			ered "$c is set, unset it"
+			errors=$((errors+1))
+		fi
 	else
-		egreen "$c is not set"
+		egreen "$c is already unset"
 	fi
 done
 
 if [ $errors -eq 0 ];then
 	egreen "\n\nConfig file checked, found no errors.\n\n"
 else
-	ered "\n\nConfig file checked, found $errors errors.\n\n"
+	ered "\n\nConfig file checked, found $errors errors that I did not fix.\n\n"
+fi
+
+if [ $fixes -gt 0 ];then
+	egreen "Made $fixes fixes.\n\n"
 fi
